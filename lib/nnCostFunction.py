@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd 
 import random
+from itertools import groupby
 
 def unpackTheta(theta, layers):
     #UNPACKTHETA given a vector theta and a vector of layer structure
@@ -22,12 +23,12 @@ def unpackTheta(theta, layers):
         
     return Theta
 
-def nnCostFunction(nn_params, layers, X, Y, Lambda, activationFn):
+def nnCostFunction(nn_params, X, Y, layers, Lambda, activationFn):
     #NNCOSTFUNCTION Implements the neural network cost function for a multi-layer
     #   neural network which performs classification. It accepts 'sigm' or
     #   'tanh' as activation functions. Computes the cost and gradient of the NN.
     #   
-    #   usage: J, grad = NNCOSTFUNCTION(nn_params, layers, X, y, Lambda) 
+    #   usage: J, grad = NNCOSTFUNCTION(nn_params, X, y, layers, Lambda) 
     #
     #   Input
     #   nn_params:      current weights of the network, collected into a single
@@ -135,41 +136,35 @@ def nnCostFunction(nn_params, layers, X, Y, Lambda, activationFn):
 # gradient descent 
 # regarding different types of learning rate: https://www.mygreatlearning.com/blog/understanding-learning-rate-in-machine-learning/
 
-# to do: add gtol stopping criteria
+# notes: do not need ftol or gtol criteria
 # to do: investigate how to implement stochastic gradient descent instead of full batch gradient on all samples
-# opt_options = {"l_rate": 0.1, 'l_type': 'constant','ftol': 10e-6, "maxIter": None}
+# opt_options = {'l_rate': 0.1, 'l_type': 'constant', 'maxIter': None}
 
-def fmincg(fun, p0, opt_options = {"l_rate": 0.1, 'l_type': 'constant','ftol': 10e-6, "maxIter": None}, **kwargs):
+def fmincg_batch(fun, p0, X, Y, opt_options = {"l_rate": 0.1, 'l_type': 'constant','ftol': 10e-6, "maxIter": 100}, **kwargs):
     """[summary]
 
     Args:
         fun ([type]): objective function
         p0 (array): initial parameter to optimize on
-        options(dictionary):options to configure an optimization algorithm
+        X: the feature matrix from the sample data for evaluation
+        y: the labels (answers) from the sample data for evaluation
+        opt_options (dictionary): options to configure an optimization algorithm
     """
         
     l_rate0 = opt_options.get('l_rate')
     l_type = opt_options.get('l_type')
     maxIter = opt_options.get('maxIter')
-    ftol = opt_options.get('ftol')
     
-    if (l_type in ['adaptive-RMSProp']) & (maxIter==None）:
-        print("ftol won't be used, please provide max iterations for adaptive learning rate method")
-        break
-    
-    # initial evaluation
-    J, grad = fun(p0, **kwargs)
+    # initial values
     l_rate = l_rate0
-    p = p0 - grad*l_rate
+    p = p0
     s = random.uniform(0,1) # momentum initial value for adaptive learning rate method
+    diag = pd.DataFrame(data = {'iteration':[], 'objective': [], 'learning_rate': []})    
     
-    diag = pd.DataFrame(data = {'iteration':[0], 'objective': [J], 'learning_rate': [l_rate]})    
-    
-    print("Interation 1: Objective Value = {}".format(J))
     # updating weight in iterations
-    i = 1
+    i = 0
     while i < int(maxIter):
-        J, grad = fun(p, **kwargs)
+        J, grad = fun(p, X=X, Y=Y, **kwargs)
         if l_type == 'constant':  # approach 1: constant learning rate
             print('apply constant learning rate')
             p = p - grad*l_rate
@@ -191,7 +186,7 @@ def fmincg(fun, p0, opt_options = {"l_rate": 0.1, 'l_type': 'constant','ftol': 1
                 l_rate = l_rate + (l_rate_max - l_rate_min)*((-1)**(i//S+1))
             p = p - grad*l_rate 
         elif l_type == 'adaptive-RMSProp': # widely used in training deep neural networks with stochastic gradient descent 
-            print('apply adaptive learning rate')
+            print('apply adaptive learning rate: RMSProp')
             s = s*0.8 + (1-0.8)*(grad**2) # (forgetting factor 0.8 - normally between 0.7-0.9)
             l_rate = l_rate0/np.sqrt(s)
             p = p - grad*l_rate
@@ -201,13 +196,105 @@ def fmincg(fun, p0, opt_options = {"l_rate": 0.1, 'l_type': 'constant','ftol': 1
         diag = diag.append({'iteration':i,'objective':J, 'learning_rate':l_rate}, ignore_index=True)
         print("Interation {}: Objective Value = {}".format(i+1, J))
         i+=1
-        
-        if l_type not in ['adaptive']：
-            J_current = list(diag['objective'])[-1] 
-            J_previous = list(diag['objective'])[-2] 
-            if abs(J_current - J_previous) < ftol*(1+abs(J_previous)):
-                break
 
     return J, p, diag
+
+
+# SGD
+def get_batch(iterable, size):
+    def ticker(x, s=size, a=[-1]):
+        r = a[0] = a[0] + 1
+        return r // s
+    for _, g in groupby(iterable, ticker):
+         yield g
+        
+def fmincg_SGD(fun, p0, X, Y, opt_options = {"l_rate": 0.1, 'l_type': 'adaptive-RMSProp',"maxIter": 100, 'batch_size': 50}, **kwargs):
+    """[summary]
+
+    Args:
+        fun ([type]): objective function
+        p0 (array): initial parameter to optimize on
+        X: the feature matrix from the sample data for evaluation
+        y: the labels (answers) from the sample data for evaluation
+        opt_options (dictionary): options to configure an optimization algorithm
+    """
+        
+    l_rate0 = opt_options.get('l_rate')
+    l_type = opt_options.get('l_type')
+    maxIter = opt_options.get('maxIter')
+    batch_size = opt_options.get('batch_size')
     
+    # initial 
+    l_rate = l_rate0
+    p = p0
+    m = random.uniform(0,1) # first momentum initial value 
+    v = random.uniform(0,1) # second momentum initial value 
+    delta_p = np.array([0]*len(p)) # initial delta weight for Momentum method
+    grad_cum = np.array([0]*len(p)) # initial value for the cumulative gradient on AdaGrad method
+    diag = pd.DataFrame(data = {'iteration':[], 'objective': [], 'learning_rate': []})    
     
+    # updating weight in iterations
+    i = 0
+    while i < int(maxIter):
+        # random shuffling of data
+        m = X.shape[0]
+        rand_indices = np.random.permutation(m)
+        X = X[rand_indices, :]
+        Y = Y[rand_indices]
+        
+        for batch in get_batch(np.arange(0,m), size = batch_size):
+            indices = list(batch)
+            J, grad = fun(p, X[indices,:], Y[indices], **kwargs)
+            if l_type == 'constant':  # approach 1: constant learning rate
+                print('apply constant learning rate')
+                p = p - grad*l_rate
+            elif l_type == 'decayed':
+                print('apply decayed learning rate')
+                l_rate = l_rate/(1+0.1*i) #  (decay rate: 0.1)
+                p = p - grad*l_rate 
+            elif l_type == 'scheduled':
+                print('apply scheduled learning rate')
+                l_rate = l_rate*(0.3**(i//50)) # (how much to reduce learning rate: 0.3, frequency parameter: 50)
+                p = p - grad*l_rate 
+            elif l_type == 'cycling':
+                print('apply scheduled learning rate')
+                l_rate_min, l_rate_max = 0.01, l_rate
+                S = 10 # step size
+                if i < 10:
+                    l_rate = l_rate_max - (l_rate_max - l_rate_min)/S*(S-i+1)
+                else:
+                    l_rate = l_rate + (l_rate_max - l_rate_min)*((-1)**(i//S+1))
+                p = p - grad*l_rate 
+            elif l_type == 'adaptive-RMSProp': # widely used in training deep neural networks with stochastic gradient descent 
+                print('apply adaptive learning rate: RMSProp')
+                v = v*0.8 + (1-0.8)*(grad**2) # (forgetting factor 0.8 - normally between 0.7-0.9)
+                l_rate = l_rate0/np.sqrt(v)
+                p = p - grad*l_rate
+            elif l_type == 'Adam':
+                print('apply adaptive learning rate: Adam')
+                # an adaptivie to the RMSProp method
+                # In this optimization algorithm, running averages of both the gradients and the second moments of the gradients are used.
+                m = m*0.9/(1-0.9) + grad # forgetting factor 0.9 for the gradient
+                v = v*0.999/(1-0.999) + (grad**2) # forgetting factor 0.999 for the second moments of gradient
+                p = p - l_rate*m/(np.sqrt(v) + 10**-8) # prevent zero by division error
+            elif l_type == 'Momentum':
+                print('apply adaptive learning rate: Momentum')
+                # Stochastic gradient descent with momentum remembers the update Δw at each iteration, and determines the next update as a linear combination of the gradient and the previous update
+                delta_p = delta_p*0.8 - l_rate*grad
+                p = p - grad*l_rate + delta_p
+            elif l_type == 'AdaGrad':
+                print('apply adaptive learning rate: AdaGrad')
+                # this increases the learning rate for sparser parameters and decreases the learning rate for ones that are less sparse. 
+                # This strategy often improves convergence performance over standard stochastic gradient descent in settings where data is sparse and sparse parameters are more informative
+                # widely used in NLP and image recognition
+                grad_cum+=grad**2 # parameter with fewer updates tends to receive higher learning rate
+                p = p - (l_rate/np.sqrt(grad_cum))*grad
+            else:
+                print('no specified method available, default to constant')
+                p = p - grad*l_rate
+            print("Objective Value = {}".format(J))
+        diag = diag.append({'iteration':i,'objective':J, 'learning_rate':l_rate}, ignore_index=True)
+        print("Interation {}: Objective Value = {}".format(i+1, J))
+        i+=1
+
+    return J, p, diag

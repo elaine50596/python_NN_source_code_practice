@@ -8,7 +8,7 @@ from lib.randInitializeWeights import randInitializeWeights
 from lib.unpackTheta import unpackTheta
 
 import scipy.optimize as op
-from lib.nnCostFunction import nnCostFunction, fmincg
+from lib.nnCostFunction import nnCostFunction, fmincg_batch, fmincg_SGD
 from datetime import datetime
 
 class modelNN: 
@@ -20,8 +20,8 @@ class modelNN:
                             "activationFn": 'sigmoid',
                             'validPercent':20,
                             'doNormalize': True,
-                            'opt_options': {"l_rate": 0.1, 'l_type': 'constant','ftol': 10e-6, "maxIter": 500},
                             'savePath': None},
+                optimization = {'algorithm':'fmincg_SGD','opt_options':{"l_rate": 0.1, 'l_type': 'constant','maxIter': 500}},
                 **kwargs):
         #   Input parameters
         #   X:                  The feature matrix [m,f], where f is the number of
@@ -106,19 +106,20 @@ class modelNN:
         initial_nn_params = randInitializeWeights(layers)
         
         # Set options for optimizer
-        opt_options = nnOptions.get('opt_options')
+        algorithm = optimization.get('algorithm')
+        opt_options = optimization.get('opt_options')
         
         # The actual minimization happens here
         startT = datetime.now()
         
-        __, theta, diag = fmincg(fun = nnCostFunction, 
+        __, theta, diag = eval(f"""{algorithm}(fun = nnCostFunction,
                                     p0 = initial_nn_params,
-                                    opt_options=opt_options,
-                                    layers = layers, 
                                     X = X_train_norm, 
                                     Y = Y_train, 
+                                    opt_options=opt_options,
+                                    layers = layers, 
                                     Lambda = Lambda, 
-                                    activationFn = activationFn)
+                                    activationFn = activationFn)""")
 
         endT = datetime.now()
         elapsed = (endT - startT)
