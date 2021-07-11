@@ -2,7 +2,7 @@
 
 ## Description:
 This is a source code practice to dig into the neural network model estimation process.
-- based on a Matlab neural network fit module
+- initialize from a Matlab neural network fit module
 - sample data from image pixels
 - fit a neural network model for accurate image recognition
 
@@ -18,5 +18,5 @@ This is a source code practice to dig into the neural network model estimation p
 - Try more adaptive learning rate methods (momentum, AdaGrad, Adam, others)
 
 ## Future investigations:
-- Other activation functions categories
-- Regression types of problems
+- Regression problem
+- Density Approximation problem 
