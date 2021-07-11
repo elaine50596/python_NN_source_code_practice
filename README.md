@@ -10,12 +10,12 @@ This is a source code practice to dig into the neural network model estimation p
 - Forward Propogation on cost function estimation
 - Built in two types of activation functions (tanh, sigmoid)
 - Backpropogation on gradient derivation
-- Tried different learning rate method (constant, decayed, scheduled, cycling, RMSProp)
-- Tried batch gradient descent algorithm
+- Tested different learning rate method (constant, decayed, scheduled, cycling, RMSProp)
+- Tested batch gradient descent algorithm
 
 ## 7.11 coverage:
-- Try Stochastic Gradient Descent Algorithms (SGD, mini-batch SGD)
-- Try more adaptive learning rate methods (momentum, AdaGrad, Adam, others)
+- Tested Stochastic Gradient Descent Algorithms (SGD, mini-batch SGD)
+- Tested more adaptive learning rate methods (momentum, AdaGrad, Adam, others)
 
 ## Future investigations:
 - Regression problem
