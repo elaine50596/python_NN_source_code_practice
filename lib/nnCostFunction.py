@@ -126,7 +126,7 @@ def nnCostFunction(nn_params, X, Y, layers, Lambda, activationFn):
     # the rest of the layers down to the input layer
     for ii in np.arange(1,nl): # starting from 2nd to last
         bi = nl - ii # backprop index
-        delta[bi]= np.multiply((delta[bi + 1] * Theta[bi][:, 1:]), np.vectorize(gF)(z[bi]))        
+        delta[bi]= np.multiply((delta[bi + 1] * Theta[bi][:, 1:]), np.vectorize(gF)(z[bi])) # error term for this layer is back propogated from the error term of the previous layer multiplied by the current weight and the partial derivative of the activation function on this node (activation function basd on tanh and sigmoid therefore might suffer from vanishing gradient issue)      
         Delta[bi-1] = delta[bi].T * a[bi-1] 
         ThetaGrad[bi-1] = Delta[bi-1]/m + np.hstack((np.zeros((layers[bi],1)), Theta[bi-1][:, 1:]))*Lambda/m
         grad[np.arange((snel[bi-1]), snel[bi]+1)] = ThetaGrad[bi-1].flatten()

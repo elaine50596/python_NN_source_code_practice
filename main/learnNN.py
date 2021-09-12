@@ -97,7 +97,7 @@ class modelNN:
         if doNormalize:
             X_train_norm, nnMu, nnSigma = featureNormalize(X_train)
         else:
-            X_train_norm, nnMu, nnSigma  = X, np.repeat(0,X_train.shape[1]),np.repeat(1,X_train.shape[1])
+            X_train_norm, nnMu, nnSigma  = X_train, np.repeat(0,X_train.shape[1]),np.repeat(1,X_train.shape[1])
           
         self.nnMu = nnMu
         self.nnSigma = nnSigma
